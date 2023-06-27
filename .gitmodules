@@ -1,0 +1,12 @@
+[submodule "colcon_ws/src/dasc_robot_gui"]
+	path = colcon_ws/src/dasc_robot_gui
+	url = git@github.com:dev10110/dasc-robot-gui.git
+[submodule "colcon_ws/src/px4_msgs"]
+	path = colcon_ws/src/px4_msgs
+	url = git@github.com:dev10110/px4_msgs.git
+[submodule "colcon_ws/src/ros2-vicon-receiver"]
+	path = colcon_ws/src/ros2-vicon-receiver
+	url = git@github.com:dasc-lab/ros2-vicon-receiver.git
+[submodule "colcon_ws/src/vicon_px4_bridge"]
+	path = colcon_ws/src/vicon_px4_bridge
+	url = git@github.com:dasc-lab/vicon_px4_bridge.git

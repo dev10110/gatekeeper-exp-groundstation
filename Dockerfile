@@ -1,0 +1,38 @@
+FROM ros:galactic
+
+SHELL ["/usr/bin/bash", "-c"]
+
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends \
+  vim \
+  tmux \
+  wget \ 
+  tree \
+  clang-format
+
+# rviz
+RUN apt-get install -y \
+  ros-${ROS_DISTRO}-rviz2 \
+  ros-${ROS_DISTRO}-image-transport \
+  ros-${ROS_DISTRO}-rqt-common-plugins
+
+
+# rviz plugin dependencies
+RUN apt-get install -y \
+  qt5-default \ 
+  libboost-all-dev
+
+
+
+## install vicon receiver
+WORKDIR /root/colcon_ws/src
+RUN git clone https://github.com/dasc-lab/ros2-vicon-receiver.git
+WORKDIR /root/colcon_ws/src/ros2-vicon-receiver
+RUN ./install_libs.sh
+
+
+# default locations
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
+RUN echo "source /root/colcon_ws/install/setup.bash" >> /root/.bashrc
+
+WORKDIR /root/colcon_ws
