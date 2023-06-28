@@ -10,3 +10,9 @@
 [submodule "colcon_ws/src/vicon_px4_bridge"]
 	path = colcon_ws/src/vicon_px4_bridge
 	url = git@github.com:dasc-lab/vicon_px4_bridge.git
+[submodule "colcon_ws/src/DecompROS2"]
+	path = colcon_ws/src/DecompROS2
+	url = git@github.com:dev10110/DecompROS2.git
+[submodule "colcon_ws/src/dasc_ros"]
+	path = colcon_ws/src/dasc_ros
+	url = git@github.com:dev10110/dasc_ros.git
