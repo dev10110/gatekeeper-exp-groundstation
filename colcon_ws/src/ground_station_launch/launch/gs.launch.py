@@ -10,6 +10,10 @@ from launch.substitutions import LaunchConfiguration
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
+
+
 
 import math
 
@@ -43,6 +47,7 @@ def generate_launch_description():
             package='vicon_px4_bridge', executable='bridge', output='screen',
             parameters=[{'px4_name': robot_name, 'vicon_name': robot_name}]
         )
+
     # define some static tfs
     vicon_world_NED = Node(
             package="tf2_ros",
@@ -51,12 +56,26 @@ def generate_launch_description():
                 "0","0","0", f"{math.pi/2}", "0", f"{math.pi}", "/vicon/world/NED", "/vicon/world"]
             )
 
+    # decompros viz node
+    # decomp_ros_viz = ComposableNode(
+    #        namespace="camera",
+    #        package="decomp_ros",
+    #        plugin="decompros::VizPoly"
+    #        )
+
+    decomp_ros_viz = Node(
+            package="decomp_ros",
+            namespace="camera",
+            executable="vizPoly_node"
+            )
+
 
     return LaunchDescription([
-        rviz,
+        # rviz,
         vicon,
-        vicon_px4_bridge_node,
-        vicon_world_NED,
+        # vicon_px4_bridge_node,
+        # vicon_world_NED,
+        # decomp_ros_viz
         ])
 
 

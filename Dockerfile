@@ -47,6 +47,12 @@ RUN pip3 install transforms3d
 # install pcl
 RUN apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-pcl-ros 
 
+# install realsense
+RUN apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-realsense2-*
+
+# install fastdds
+RUN apt-get install -y ros-${ROS_DISTRO}-rmw-fastrtps-cpp
+
 
 # default locations
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
