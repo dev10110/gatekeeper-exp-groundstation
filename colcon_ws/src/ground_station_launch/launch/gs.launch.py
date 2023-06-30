@@ -73,9 +73,9 @@ def generate_launch_description():
     return LaunchDescription([
         # rviz,
         vicon,
-        # vicon_px4_bridge_node,
-        # vicon_world_NED,
-        # decomp_ros_viz
+        vicon_px4_bridge_node,
+        vicon_world_NED,
+        decomp_ros_viz
         ])
 
 

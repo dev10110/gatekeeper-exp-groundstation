@@ -53,6 +53,9 @@ RUN apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-realsense2-*
 # install fastdds
 RUN apt-get install -y ros-${ROS_DISTRO}-rmw-fastrtps-cpp
 
+# install osqp
+RUN pip3 install numpy scipy osqp
+
 
 # default locations
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc

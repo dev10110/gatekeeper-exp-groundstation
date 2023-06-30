@@ -54,7 +54,7 @@ class MPCPlanner:
 
 
 
-    def set_start_state(self, state):
+    def set_state(self, state):
         self.x0 = state
     
     def set_target_state(self, target_state):
