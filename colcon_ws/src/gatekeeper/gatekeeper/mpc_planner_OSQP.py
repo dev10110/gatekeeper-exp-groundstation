@@ -83,8 +83,8 @@ class MPCPlanner:
         nu = self.nu
 
         Q = sparse.eye(nx)
-        QN = Q
-        R = 0.1*sparse.eye(nu)
+        QN = N*Q
+        R = 0.00001*sparse.eye(nu)
 
         P = sparse.block_diag(
                 [sparse.kron(sparse.eye(self.N), Q), QN,

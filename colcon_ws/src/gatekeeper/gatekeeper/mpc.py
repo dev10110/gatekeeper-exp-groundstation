@@ -47,7 +47,7 @@ class MPCPlanner(Node):
 
         ## parameters
         self.frame_id = "vicon/world/NED"
-        self.recompute_period_s = 0.5 # seconds
+        self.recompute_period_s = 200000.0 # seconds
 
         ## subscribers
         sensor_qos = QoSProfile(
@@ -88,7 +88,7 @@ class MPCPlanner(Node):
                 "mpc_goal_viz", sensor_qos)
 
         ## initialize mpc object
-        self.mpc = mpc_planner.MPCPlanner(N = 20, DT=0.1, max_accel=10.0)
+        self.mpc = mpc_planner.MPCPlanner(N = 20, DT=0.2, max_accel=100.0)
         self.get_logger().info("Initialize the MPC planner!")
 
         # initialize the self.state
@@ -120,7 +120,8 @@ class MPCPlanner(Node):
 
         self.goal_pose = tf2_geometry_msgs.do_transform_pose_stamped(msg, trans)
 
-        self.goal_pose.pose.position.z = -1.0 # force it to be at 1 m off the ground (NED frame)
+        self.goal_pose.pose.position.z = -0.75 # force it to be at 1 m off the ground (NED frame)
+
 
         # FOR DEBUGGING!
         # publish the goal pose
@@ -250,6 +251,8 @@ class MPCPlanner(Node):
         # create the yaws from the solution
         yaws = [];
         for i in range(self.mpc.N):
+            # yaws.append(1.57)
+
             vx = xs[i][1]
             vy = xs[i][3]
             eps = 0.05
