@@ -69,7 +69,6 @@ def generate_launch_description():
             executable="vizPoly_node"
             )
 
-
     return LaunchDescription([
         # rviz,
         vicon,

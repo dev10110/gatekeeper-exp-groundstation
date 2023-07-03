@@ -67,20 +67,6 @@ def generate_launch_description():
                 ],
             output="screen"
             )
-    off_x = "0.0"
-    off_y = "0"
-    off_z = "0"
-    off_roll = "3.14"
-    off_pitch = "0"
-    off_yaw = "0"
-    
-    ## define a static tf between vicon and the camera
-    static_tf = Node(
-            package="tf2_ros", 
-            executable="static_transform_publisher",
-            arguments=[
-               off_x, off_y, off_z, off_yaw, off_pitch, off_roll, "vicon/px4_1/px4_1", "camera_link"]
-            )
 
 
     return LaunchDescription([
