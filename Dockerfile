@@ -54,7 +54,14 @@ RUN apt-get install -y --no-install-recommends ros-${ROS_DISTRO}-realsense2-*
 RUN apt-get install -y ros-${ROS_DISTRO}-rmw-fastrtps-cpp
 
 # install osqp
-RUN pip3 install numpy scipy osqp
+RUN pip3 install --upgrade numpy scipy osqp
+
+
+# install ros joy
+RUN apt-get update && apt-get install -y ros-${ROS_DISTRO}-joy
+
+
+
 
 
 # default locations

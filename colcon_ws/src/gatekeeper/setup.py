@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mpc = gatekeeper.mpc:main'
+            'mpc = gatekeeper.mpc:main',
+            'pathToTrajectory = gatekeeper.path_to_trajectory:main'
         ],
     },
 )

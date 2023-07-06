@@ -16,3 +16,6 @@
 [submodule "colcon_ws/src/dasc_ros"]
 	path = colcon_ws/src/dasc_ros
 	url = git@github.com:dev10110/dasc_ros.git
+[submodule "colcon_ws/src/isaac_ros_nvblox"]
+	path = colcon_ws/src/isaac_ros_nvblox
+	url = https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_nvblox.git
