@@ -5,6 +5,7 @@ using ComponentArrays
 using StaticArrays
 using Interpolations
 using ForwardDiff
+using Parameters
 
 
 using DifferentialEquations
@@ -16,7 +17,7 @@ const quad_params = ComponentArray(
   RS.quadrotor_parameters;
   mass=0.8,
   J = diagm([0.0025, 0.0025, 0.004]) |> collect, 
-  k_f = 1.37e-6, # TODO(dev): check!
+  k_f = 1.37e-6, 
   k_μ = 1.37e-7,  # TODO(dev): check!
   ω_max = 2500.0,
 ) |> RS.initialize_quad_params
@@ -33,45 +34,67 @@ const cont_params = ComponentArray(
 )
 
 
-struct NominalTrajectory
-    t0
-    dt
-    xs
-    ys
-    zs
-    yaws 
+struct NominalTrajectory{F, VF<:AbstractVector{F}}
+    t0::F
+    dt::F
+    xs::VF
+    ys::VF
+    zs::VF
+    yaws::VF
+end
+
+const SM3{F} = SMatrix{3,3,F,9}
+const SV3{F} = SVector{3,F}
+
+function vee(M::SM3)
+    return @SVector [
+        (M[3, 2] - M[2, 3]) / 2
+        (M[1, 3] - M[3, 1]) / 2
+        (M[2, 1] - M[1, 2]) / 2
+    ]
+end
+
+function hat(v::SV3{F}) where {F}
+    return @SMatrix [
+        [zero(F);; -v[3];; v[2]]
+        [v[3];; zero(F);; -v[1]]
+        [-v[2];; v[1];; zero(F)]
+    ]
 end
 
 
-# function interpolate_flat_trajectory(time, traj)
-# 
-#     index = floor(Int, (time - traj.t0) /  traj.dt) + 1
-# 
-#     dt = time - (traj.t0 + (index - 1) * traj.dt)
-# 
-#     # construct matrix for forwardprop
-#     A = [
-#          [ 1  ;; dt ;; dt^2/2 ;; dt^3/6 ;; dt^4/24];
-#          [ 0  ;; 1  ;; dt ;; dt^2/2 ;; dt^3/6 ];
-#          [ 0  ;; 0  ;; 1  ;; dt ;; dt^2/2 ];
-#          [ 0  ;; 0  ;; 0  ;; 1  ;; dt ];
-#          [ 0  ;; 0  ;; 0  ;; 0  ;; 1  ];
-#         ]
-# 
-#     S = [
-#          [traj.xs..., traj.yaws];
-#          [traj.vs..., traj.yawspeeds];
-#          [traj.as..., traj.yawaccels];
-#          [traj.js..., 0];
-#          [traj.ss..., 0];
-#         ]
-# 
-#     R = A * S
-# 
-# 
-#     return R[1, 1:3], R[2, 1:3], R[3, 1:3], R[4, 1:3], R[5, 1:3], R[1, 4], R[2, 4], R[3, 4]
-# 
-# end
+function geometric_controller(state, xd, vd, ad, b1d, Ωd, αd, controller_params)
+
+    x = SVector{3}(state.x)
+    v = SVector{3}(state.v)
+    R = SMatrix{3,3, Float64, 9}(state.R)
+    Ω = SVector{3}(state.Ω)
+
+    @unpack kx, kv, kR, kΩ, m, g = controller_params
+    J = SM3(controller_params.J)
+
+    e3 = SA[0, 0, 1.0]
+
+    ex = x - SVector{3}(xd)
+    ev = v - SVector{3}(vd)
+
+    # construct desired rotation matrix
+    b3d = (-kx * ex - kv * ev + m * g * e3 + m * ad) |> normalize
+    b2d = cross(b3d, normalize(SVector{3}(b1d))) |> normalize
+    b1d_n = cross(b2d, b3d) |> normalize
+
+    Rd = [b1d_n b2d b3d]
+
+    eR = 0.5 * vee(Rd' * R - R' * Rd)
+    eΩ = Ω - R' * Rd * Ωd
+
+
+    f = dot(-kx * ex - kv * ev + m * g * e3 + m * ad, R * e3)
+    M = -kR * eR - kΩ * eΩ + cross(Ω, (J * Ω)) - J * (hat(Ω) * R' * Rd * Ωd - R' * Rd * αd)
+
+    return SA[f, M[1], M[2], M[3]]
+
+end
 
 function construct_interpolants(traj)
     # assumes traj is in the form of traj.t0, traj.dt, traj.positions
@@ -158,26 +181,28 @@ end
 
 function closed_loop_tracking_nominal!(D, state, params, time)
 
-    interpolant_fn = params
+    interpolant_fn, quad_p, cont_p = params
     
     target_state = interpolant_fn(time)
 
-    fM = RS.geometric_controller(state, target_state..., cont_params)
+    fM = geometric_controller(state, target_state..., cont_p)
 
-    control = RS.fM_to_ω(fM, cont_params)
+    control = RS.fM_to_ω(fM, cont_p)
 
-    RS.quadrotor!(D, state, quad_params, control, time)
+    RS.quadrotor!(D, state, quad_p, control, time)
 
 
 end
 
-function closed_loop_backup_stop!(D, state, target_state, time)
+function closed_loop_backup_stop!(D, state, params, time)
 
-    fM = RS.geometric_controller(state, target_state..., cont_params)
+    target_state, quad_p, cont_p = params
 
-    control = RS.fM_to_ω(fM, cont_params)
+    fM = geometric_controller(state, target_state..., cont_p)
 
-    RS.quadrotor!(D, state, quad_params, control, time)
+    control = RS.fM_to_ω(fM, cont_p)
+
+    RS.quadrotor!(D, state, quad_p, control, time)
 
 end
 
@@ -186,7 +211,7 @@ end
 
 
 """
-function construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
+function construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb; quad_params =quad_params, cont_params=cont_params)
 
 
     # convert traj_nominal into trajectory function to track
@@ -196,16 +221,9 @@ function construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
 
 
     ## first simulate tracking nominal for Ts seconds
-    quad_ic1 = ComponentArray(
-                              x = zeros(3),
-                              v = zeros(3),
-                              R = 1.0(I(3)) |> collect,
-                              Ω = zeros(3),
-                              ω = RS.hover_ω(quad_params)
-                             )# TODO(dev): update with the correct initial condition!!
     tspan1 = (t0, t0 + Ts)
-    params1 = interpolant_fn
-    prob1 = ODEProblem(closed_loop_tracking_nominal!, quad_ic1, tspan1, params1)
+    params1 = (interpolant_fn, quad_params, cont_params)
+    prob1 = ODEProblem(closed_loop_tracking_nominal!, x0, tspan1, params1)
     sol1 = solve(prob1, Tsit5(), abstol = 1e-5, reltol=1e-2, dense=false)
     
 
@@ -226,10 +244,10 @@ function construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
                                                0.0, # yaw speed
                                                0.0  # yaw accel
                                               )
-    params2 = stop_target
 
 
     ## create the backup trajectory
+    params2 = (stop_target, quad_params, cont_params)
     tspan2 = (t0 + Ts, t0 + Ts + Tb)
     prob2 = ODEProblem(closed_loop_backup_stop!, quad_ic2, tspan2, params2)
     sol2 = solve(prob2, Tsit5(), abstol = 1e-4, reltol=1e-2, dense=false)
@@ -263,21 +281,20 @@ function is_valid(sol1, sol2, sfc)
     t2 = sol2.t[end] 
 
     # check if the x exceeds 1.5 m
-    for (i, state) in enumerate(sol1.u)
+    for state in reverse(sol2.u)
+        if state.x[1] > 1.5
+            return false
+        end
+    end
+    
+    for i in reverse(1:length(sol1.u))
         if sol1.t[i] < t1
-            if state.x[1] > 1.5
+            if sol1.u[i].x[1] > 1.5
                 return false
             end
         end
     end
     
-    for state in sol2.u
-        if state.x[1] > 1.5
-            return false
-        end
-    end
-
-
 
 
     return true 
@@ -287,25 +304,17 @@ function is_valid(sol1, sol2, sfc)
 end
 
 
-function construct_main_branch(t0, x0, traj_nominal)
+function construct_main_branch(t0, x0, traj_nominal; quad_params=quad_params, cont_params=cont_params)
     # convert traj_nominal into trajectory function to track
     interpolant_fn = construct_interpolants(traj_nominal)
-    # @time interpolant_fn = test_interpolants(traj_nominal)
 
-
+    params = (interpolant_fn, quad_params, cont_params)
 
     ## first simulate tracking nominal for Ts seconds
-    quad_ic1 = ComponentArray(
-                              x = zeros(3),
-                              v = zeros(3),
-                              R = 1.0(I(3)) |> collect,
-                              Ω = zeros(3),
-                              ω = RS.hover_ω(quad_params)
-                             )# TODO(dev): update with the correct initial condition!!
     tspan1 = (traj_nominal.t0, traj_nominal.t0 + traj_nominal.dt * (length(traj_nominal.xs) -1 ))
     
-    prob1 = ODEProblem(closed_loop_tracking_nominal!, quad_ic1, tspan1, interpolant_fn)
-    sol1 = solve(prob1, Tsit5(), abstol = 1e-5, reltol=1e-2, dense=false)
+    prob1 = ODEProblem(closed_loop_tracking_nominal!, x0, tspan1, params) 
+    sol1 = solve(prob1, Tsit5(), abstol = 1e-4, reltol=1e-2, dense = false)
 
     return sol1
 
@@ -317,10 +326,9 @@ end
 """
 
 """
-function gatekeeper(t0, x0, traj_nominal, traj_committed, sfc; Tb = 3.0)
+function gatekeeper(t0, x0, traj_nominal, traj_committed, sfc; Tb = 3.0, quad_params=quad_params, cont_params=cont_params)
 
     # x0 is expected to be in format of quadrotor state: (x, v, R, \Omega, \omega)
-  
 
     # first construct the main branch of the solution
     sol_main = construct_main_branch(t0, x0, traj_nominal)
@@ -346,7 +354,7 @@ function gatekeeper(t0, x0, traj_nominal, traj_committed, sfc; Tb = 3.0)
                                                0.0, # yaw speed
                                                0.0  # yaw accel
                                               )
-        remake(prob, u0 = ic, p = stop_target, tspan = (Ts, Ts + Tb) )
+        remake(prob, u0 = ic, p = (stop_target, quad_params, cont_params), tspan = (Ts, Ts + Tb) )
     end
 
     function reduction(sols, new_sols, I)
@@ -364,12 +372,13 @@ function gatekeeper(t0, x0, traj_nominal, traj_committed, sfc; Tb = 3.0)
     end
 
     # now construct the branch problems
-    prob_branch = ODEProblem(closed_loop_backup_stop!, x0, (0.0, Tb), x0) 
+    params_branch = (x0, quad_params, cont_params) 
+    prob_branch = ODEProblem(closed_loop_backup_stop!, x0, (0.0, Tb), params_branch) 
 
     # prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func)
     prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func, reduction = reduction)
 
-    sim = solve(prob_ensemble, Tsit5(), EnsembleThreads(), trajectories = length(candidate_Ts), batch_size = 3)
+    sim = solve(prob_ensemble, Tsit5(), EnsembleThreads(), trajectories = length(candidate_Ts), batch_size = 1)
 
 
     if is_valid(sol_main, sim[end], sfc)
@@ -382,152 +391,6 @@ function gatekeeper(t0, x0, traj_nominal, traj_committed, sfc; Tb = 3.0)
 end
 
 
-
-
-
-
-    
-    # tf = traj_nominal.dt * (length(traj_nominal.xs) - 1)
-
-    # candidate_Ts = range(start=tf, stop=0.0, length=5)
-
-    # for Ts in candidate_Ts
-
-    #     println("**SOLVING WITH $(Ts)**")
-    # 
-    #     sol1, sol2 = construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
-
-    #     if is_valid(sol1, sol2, sfc)
-
-    #         # need to convert to traj_committed
-    #         return true
-    #     end
-
-    # end
-
-    # return false
-
-# end
-
 end
 
 
-import .Gatekeeper
-GK = Gatekeeper
-using Plots
-using RoboticSystems
-RS = RoboticSystems
-
-
-function animate_sol(Ts, Tb, sol1, sol2, xs, ys, zs)
-
-    anim = @animate for tm = range(sol1.t[1], sol2.t[end], 200)
-
-        if tm < sol1.t[end]
-
-            plot()
-            RS.plot_quad_traj!(sol1, GK.quad_params; tspan=(sol1.t[1], tm))
-
-        else
-            plot()
-            RS.plot_quad_traj!(sol1, GK.quad_params; tspan=(sol1.t[1], sol2.t[2]))
-            RS.plot_quad_traj!(sol2, GK.quad_params; tspan=(sol2.t[1], tm))
-
-        end
-
-        plot!(xs, ys, zs, label="target")
-            plot!(camera = (360 * ((tm - sol1.t[1]) / (sol2.t[end] - sol1.t[1])), 30))
-            plot!( xlabel="x", ylabel="y", zlabel="z")
-            RS.plot_iso3d!()
-            RS.plot_project3d!()
-        end
-
-end
-
-
-
-
-function test_stuff()
-
-    t0 = 0.0;
-    Ts = 2.0;
-    Tb = 3.0;
-
-    x0 = [0.0] # TODO: fix
-
-    ## define a traj_nominal
-    # struct NominalTrajectory
-    #     t0
-    #     dt
-    #     xs
-    #     ys
-    #     zs
-    #     yaws 
-    # end
-  
-    dt = 0.2
-    N = ceil(Int, Ts/dt)
-
-    xs = [1.0 * i * dt for i = 0:N]
-    ys = [0.0 for x in xs]
-    zs = [1.0 for x in xs]
-    yaws = [0.0 for x in xs]
-
-    traj_nominal = GK.NominalTrajectory(
-                                     0.0,
-                                     dt,
-                                     xs, ys, zs, yaws)
-
-    traj_committed = GK.NominalTrajectory(
-                                     0.0,
-                                     dt,
-                                     xs, ys, zs, yaws)
-
-
-    # precompile
-    GK.construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
-
-
-    println("hi")
-
-    sfc = 0
-
-    @time  GK.gatekeeper(t0, x0, traj_nominal, traj_committed, sfc)
-    @time res, sol_main, sols_branch = GK.gatekeeper(t0, x0, traj_nominal, traj_committed, sfc)
-
-
-
-    # plot solutions
-    plot()
-    RS.plot_quad_traj!(sol_main, GK.quad_params)
-
-    for sol_branch in sols_branch
-      RS.plot_quad_traj!(sol_branch, GK.quad_params)
-    end
-
-    RS.plot_iso3d!()
-            RS.plot_project3d!()
-
-
-
-
-
-    # plot solution
-    #  tspan1 = (t0, t0 + Ts)
-    #  plot()
-    #  RS.plot_quad_traj!(sol1, GK.quad_params; tspan=tspan1)
-
-
-    #  tspan2 = (t0 + Ts, t0 + Ts + Tb)
-
-    #  RS.plot_quad_traj!(sol2, GK.quad_params; tspan=tspan1)
-
-
-    #  RS.plot_iso3d!()
-
-
-    #  anim = animate_sol(Ts, Tb, sol1, sol2, xs, ys, zs)
-    #  gif(anim)
-
-
-end
