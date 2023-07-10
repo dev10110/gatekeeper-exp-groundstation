@@ -40,8 +40,19 @@ class NominalTrajectoryPublisher(Node):
 
         z = 1 + np.random.rand()
 
+        # first ask it to hover at the top
+        for t in range(2): # np.arange(start=0.0, step=self.dt, stop=self.T):
+
+            pose = Pose()
+            pose.position.z = z 
+            twist = Twist()
+            acc = Accel()
+            msg.poses.append(pose)
+            msg.twists.append(twist)
+            msg.accelerations.append(acc)
+
+
         # create the reference trajectory to follow
-        t = 0.0
         for t in np.arange(start=0.0, step=self.dt, stop=self.T):
             pose = Pose()
             pose.position.x = self.vx * t

@@ -61,7 +61,26 @@ RUN pip3 install --upgrade numpy scipy osqp
 RUN apt-get update && apt-get install -y ros-${ROS_DISTRO}-joy
 
 
+# install julia
+WORKDIR /root
+RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.2-linux-x86_64.tar.gz
+RUN tar zxvf julia-1.9.2-linux-x86_64.tar.gz
+RUN ln -s /root/julia-1.9.2/bin/julia /usr/local/bin/julia
 
+# julia precompile some functions
+COPY colcon_ws/src/gatekeeper/gatekeeper/Project.toml /root/colcon_ws/src/gatekeeper/gatekeeper/Project.toml
+COPY colcon_ws/src/gatekeeper/gatekeeper/Manifest.toml /root/colcon_ws/src/gatekeeper/gatekeeper/Manifest.toml
+WORKDIR /root/colcon_ws/src/gatekeeper/gatekeeper
+RUN julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+
+# install vimplug
+RUN curl -fLo ~/.vim/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+# install the vimrc
+COPY vimrc /root/.vimrc
+RUN vim -E -s -u "$HOME/.vimrc" +PlugInstall +qall
 
 
 # default locations
