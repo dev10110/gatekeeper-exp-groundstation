@@ -1,3 +1,5 @@
+import os
+from glob import glob
 from setuptools import setup
 
 package_name = 'gatekeeper'
@@ -10,6 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -21,7 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'mpc = gatekeeper.mpc:main',
-            'pathToTrajectory = gatekeeper.path_to_trajectory:main'
+            'pathToTrajectory = gatekeeper.path_to_trajectory:main',
+            'joystick_to_goal_pose = gatekeeper.joystick_to_goal_pose:main'
         ],
     },
 )

@@ -10,7 +10,10 @@ import matplotlib.pyplot as plt
 ## https://osqp.org/docs/examples/mpc.html
 ## uses the same variable names as in that doc
 
+DIM = 3
+
 class MPCPlanner: 
+
 
     def __init__(self,
             N=20,  # planning horizon
@@ -27,14 +30,15 @@ class MPCPlanner:
         self.create_dynamics_matrices()
         
         # initial goal and x0
-        self.xr = np.ones(6)
-        self.x0 = np.zeros(6)
+        self.xr = np.ones(2*DIM)
+        self.x0 = np.zeros(2*DIM)
 
         # initialize sfc_A, sfc_b
         # constraint is of the form sfc_A @ x[pos_inds] <= sfc_b 
-        sfc_A = np.array([[1.0, 0, 0]])
-        sfc_b = np.array([100]) # default initializer just so there is something to work with
-        self.set_safe_polyhedron(sfc_A, sfc_b)
+
+        # sfc_A = np.array([[1.0, 0, 0]])
+        # sfc_b = np.array([100]) # default initializer just so there is something to work with
+        # self.set_safe_polyhedron(sfc_A, sfc_b)
 
 
     def create_dynamics_matrices(self):
@@ -44,7 +48,7 @@ class MPCPlanner:
 
         B = np.array([[0.5*self.DT**2],[self.DT]]) 
 
-        I3 = np.eye(3)
+        I3 = np.eye(DIM)
         self.Ad = sparse.csc_matrix( np.kron(I3, A) )
         self.Bd = sparse.csc_matrix( np.kron(I3, B) )
 
@@ -61,17 +65,17 @@ class MPCPlanner:
         self.xr = target_state
 
     def set_target_location(self, target):
-        for i in range(3):
+        for i in range(DIM):
             self.xr[2*i] = target[i]
             self.xr[2*i+1] = 0.0
 
-    def set_safe_polyhedron(self, A, b):
+    # def set_safe_polyhedron(self, A, b):
 
-        N_sfc = A.shape[0]
+    #     N_sfc = A.shape[0]
 
-        padded_A = np.insert(A, [1,2,3], np.zeros([N_sfc,3]), axis=1) # converts [a,b,c] to [a, 0, b, 0, c, 0]
-        self.sfc_A = sparse.csc_matrix(padded_A)
-        self.sfc_b = b
+    #     padded_A = np.insert(A, [1,2,3], np.zeros([N_sfc,3]), axis=1) # converts [a,b,c] to [a, 0, b, 0, c, 0]
+    #     self.sfc_A = sparse.csc_matrix(padded_A)
+    #     self.sfc_b = b
 
 
     def construct_objective(self):
@@ -82,13 +86,21 @@ class MPCPlanner:
         nx = self.nx
         nu = self.nu
 
-        Q = sparse.eye(nx)
-        QN = N*Q
-        R = 0.00001*sparse.eye(nu)
+        Q = 100* np.eye(nx)
+        Q[4,4] = 10*Q[0,0] # prioritize z first
+        QN = sparse.csc_matrix(Q)
+        for i in range(DIM):
+             Q[2*i + 1]  = 0.1
+        R = 0.001*sparse.eye(nu)
 
+        Q = sparse.csc_matrix(Q)
         P = sparse.block_diag(
-                [sparse.kron(sparse.eye(self.N), Q), QN,
-                       sparse.kron(sparse.eye(self.N), R)], format='csc')
+                [
+                    sparse.kron(sparse.eye(self.N), Q),
+                    QN,
+                    sparse.kron(sparse.eye(self.N), R)
+                ], format='csc')
+
 
         q = np.hstack([
             np.kron(np.ones(N), -Q@self.xr),
@@ -97,6 +109,7 @@ class MPCPlanner:
         
         # print(P.shape)
         # print(np.shape(q))
+        # print(q)
 
         return P, q
 
@@ -143,17 +156,19 @@ class MPCPlanner:
         nx = self.nx
         nu = self.nu
 
+        A = np.zeros(DIM, 2*DIM)
+        for i in range(DIM):
+            A[i, 2*i+1] = 1
+
+
         Aeq = sparse.hstack([
-          sparse.csc_matrix(np.zeros([3, N*nx])),
-          sparse.csc_matrix(np.array([ 
-              [0, 1, 0, 0, 0, 0],
-              [0, 0, 0, 1, 0, 0],
-              [0, 0, 0, 0, 0, 1]])),
-          sparse.csc_matrix(np.zeros([3, N*nu]))
+          sparse.csc_matrix(np.zeros([DIM, N*nx])),
+          sparse.csc_matrix(A),
+          sparse.csc_matrix(np.zeros([DIM, N*nu]))
           ])
 
-        leq = np.zeros(3) 
-        ueq = np.zeros(3)
+        leq = np.zeros(DIM) 
+        ueq = np.zeros(DIM)
 
         return Aeq, leq, ueq
 
@@ -184,25 +199,24 @@ class MPCPlanner:
 
 
         # dynamics + initial condition
-
         cons_dyn = self.construct_cons_dynamics() # also has the initial state constraint
         
         # input constraints
         cons_input = self.construct_cons_input()
         
-        # must come to a stop
-        cons_terminal = self.construct_cons_terminal()
+        # # must come to a stop
+        # cons_terminal = self.construct_cons_terminal()
 
-        # todo: sfc
-        cons_sfc = self.construct_cons_sfc()
+        # # todo: sfc
+        # cons_sfc = self.construct_cons_sfc()
 
 
         ## concatenate 
 
         cons = [cons_dyn,
                 cons_input,
-                cons_terminal,
-                cons_sfc
+                # cons_terminal,
+                # cons_sfc
                 ]
 
         cons_A = sparse.vstack([c[0] for c in cons], format="csc")
@@ -225,7 +239,7 @@ class MPCPlanner:
         prob = osqp.OSQP()
         
         # Setup workspace
-        prob.setup(P, q, A_cons, l_cons, u_cons, verbose=False)
+        prob.setup(P, q, A_cons, l_cons, u_cons, verbose=False, polish=True, eps_abs=1e-6, eps_rel=1e-5)
 
         # Solve
         res = prob.solve()
@@ -248,9 +262,13 @@ class MPCPlanner:
         return True
 
     def print_solution(self):
+
         
         for i in range(self.N):
             print(f"{i}:: x={np.array2string(self.sol_x[i], precision=2, suppress_small=True)} u={np.array2string(self.sol_u[i], precision=2, suppress_small=True)}")
+        
+        i = self.N
+        print(f"{i}:: x={np.array2string(self.sol_x[i], precision=2, suppress_small=True)}")
 
     def plot_solution(self):
 
@@ -271,16 +289,21 @@ class MPCPlanner:
 
 if __name__ == "__main__":
 
-    mpc = MPCPlanner()
+    mpc = MPCPlanner(
+            N=20,  # planning horizon
+            DT=0.2, # in seconds
+            max_accel = 50.0 # m/s^2
+            )
 
 
+    mpc.set_state(np.array([0.95, 0.01,   0.25, 5.,   0.25, 5.  ]))
+    mpc.set_target_location(np.array([1,1,1]))
     start_time = time.time()
-    mpc.set_target_location(np.ones(3))
     sol = mpc.solve()
     end_time = time.time()
 
     mpc.print_solution()
 
     print(f"Time: {end_time - start_time} seconds")
-    mpc.plot_solution()
+    # mpc.plot_solution()
 

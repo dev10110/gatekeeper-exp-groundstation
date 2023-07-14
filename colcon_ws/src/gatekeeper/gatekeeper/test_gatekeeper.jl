@@ -1,7 +1,7 @@
 include("gatekeeper-julia.jl")
 import .Gatekeeper
 GK = Gatekeeper
-# using Plots
+using Plots
 using RoboticSystems
 RS = RoboticSystems
 using LinearAlgebra
@@ -38,7 +38,7 @@ using ComponentArrays
 
 function test_stuff()
 
-  t0 = 0.0
+  t0 = 0.5
   Ts = 2.0
   Tb = 3.0
 
@@ -62,9 +62,6 @@ function test_stuff()
 
   traj_nominal = GK.NominalTrajectory(0.0, dt, xs, ys, zs, yaws)
 
-  traj_committed = GK.NominalTrajectory(0.0, dt, xs, ys, zs, yaws)
-
-
   # precompile
   # GK.construct_candidate_stop(t0, x0, traj_nominal, Ts, Tb)
 
@@ -75,8 +72,8 @@ function test_stuff()
   sfc_b = [1.5];
   sfcs = [GK.SFC(sfc_A, sfc_b)]
 
-  res, sol_main, sols_branch = GK.gatekeeper(t0, x0, traj_nominal, traj_committed, sfcs)
-  @time GK.gatekeeper(t0, x0, traj_nominal, traj_committed, sfcs)
+  res, sol_main, sols_branch = GK.gatekeeper(t0, x0, traj_nominal, sfcs)
+  # @time GK.gatekeeper(t0, x0, traj_nominal, sfcs)
 
 
   println(res)
@@ -92,7 +89,7 @@ function test_stuff()
   # end
 
   # RS.plot_iso3d!()
-  #         RS.plot_project3d!()
+  # RS.plot_project3d!()
 
 
 
@@ -119,7 +116,7 @@ function test_stuff()
 end
 
 
-using BenchmarkTools
+# using BenchmarkTools
 
 function test_geo()
 

@@ -38,10 +38,10 @@ class NominalTrajectoryPublisher(Node):
         msg.header.frame_id = "vicon/world"
         msg.dt = self.dt
 
-        z = 0.5 +  np.random.rand()
+        z = 1.0 
 
         # first ask it to hover at the top
-        for t in range(2): # np.arange(start=0.0, step=self.dt, stop=self.T):
+        for t in range(20): # np.arange(start=0.0, step=self.dt, stop=self.T):
 
             pose = Pose()
             pose.position.z = z 
@@ -51,21 +51,6 @@ class NominalTrajectoryPublisher(Node):
             msg.twists.append(twist)
             msg.accelerations.append(acc)
 
-
-        # create the reference trajectory to follow
-        for t in np.arange(start=0.0, step=self.dt, stop=self.T):
-            pose = Pose()
-            pose.position.x = self.vx * t
-            pose.position.z = z 
-
-            twist = Twist()
-            twist.linear.x = self.vx
-
-            acc = Accel()
-
-            msg.poses.append(pose)
-            msg.twists.append(twist)
-            msg.accelerations.append(acc)
 
 
         ## publish the msg

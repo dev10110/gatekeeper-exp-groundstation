@@ -11,8 +11,9 @@ println("gatekeeper imports")
 @time using Parameters
 
 
-# @time using DifferentialEquations
-@time using OrdinaryDiffEq
+@time using Plots
+
+@time using DifferentialEquations
 
 @time using RoboticSystems
 RS = RoboticSystems
@@ -42,7 +43,7 @@ const cont_params = ComponentArray(
 
 
 struct NominalTrajectory{F,VF<:AbstractVector{F}}
-  t0::F
+  t0::F # time in seconds 
   dt::F
   xs::VF
   ys::VF
@@ -243,9 +244,10 @@ end
 
 
 function construct_main_branch(
-  t0,
+  t0, # refers to the timestamp of x0
   x0,
   traj_nominal;
+  Ts_max = 20.0, # max duration into the future to forecast
   quad_params = quad_params,
   cont_params = cont_params,
 )
@@ -255,18 +257,23 @@ function construct_main_branch(
   params = (interpolant_fn, quad_params, cont_params)
 
   ## first simulate tracking nominal for Ts seconds
-  tspan1 =
-    (traj_nominal.t0, traj_nominal.t0 + traj_nominal.dt * (length(traj_nominal.xs) - 1))
+  tf_traj = traj_nominal.t0 + traj_nominal.dt * (length(traj_nominal.xs) - 1)
+  @show tf_traj
 
-  prob1 = ODEProblem(closed_loop_tracking_nominal!, x0, tspan1, params)
-  sol1 = solve(prob1, Tsit5(), abstol = 1e-4, reltol = 1e-2, dense = false)
+  tf = min(t0 + Ts_max, tf_traj)
+  
+  @show tf
+  tspan =(t0,  tf)
 
-  return sol1
+  @show tspan
+
+  prob = ODEProblem(closed_loop_tracking_nominal!, x0, tspan, params)
+  sol = solve(prob, Tsit5(), abstol = 1e-6, reltol = 1e-3)
+
+  return sol
 
 
 end
-
-
 
 """
 
@@ -275,7 +282,6 @@ function gatekeeper(
   t0,
   x0,
   traj_nominal,
-  traj_committed,
   sfcs;
   Tb = 3.0,
   quad_params = quad_params,
@@ -283,18 +289,22 @@ function gatekeeper(
 )
 
   # x0 is expected to be in format of quadrotor state: (x, v, R, \Omega, \omega)
+  println("Running gatekeeper with t0: $(t0)")
 
   # first construct the main branch of the solution
   sol_main = construct_main_branch(t0, x0, traj_nominal)
 
 
+  # return;
+
   # now choose a bunch of Ts
-  tf = min(sol_main.t[end], 2.0)
-  candidate_Ts = range(start = tf, stop = 0.0, length = 11)
+  candidate_Ts = range(start = sol_main.t[end] , stop = sol_main.t[1], length = 11)
+
+  println("candidate Ts: $(candidate_Ts)")
 
   function prob_func(prob, i, repeat)
     Ts = candidate_Ts[i]
-    ic = sol_main(t0 + Ts)
+    ic = sol_main(Ts)
     stop_pos = SVector{3}(ic.x)
     stop_yaw = RS.yaw(ic.R)
     szeros = @SVector zeros(3)
@@ -308,21 +318,30 @@ function gatekeeper(
       0.0, # yaw speed
       0.0,  # yaw accel
     )
+    tspan = (Ts, Ts+Tb)
+    println("remaking for i=$(i), using tspan $(tspan), with target: $(stop_pos)")
     remake(
       prob,
       u0 = ic,
       p = (stop_target, quad_params, cont_params),
-      tspan = (Ts, Ts + Tb),
+      tspan = tspan,
     )
   end
 
   function reduction(sols, new_sols, I)
 
+      println("reduction: length(new_sols) = $(length(new_sols))")
+
     # check validity - if it is valid, exit!
     for sol_branch in new_sols
-      append!(sols, sol_branch)
+        println("checking reduction for sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
+        push!(sols, sol_branch)
+        
+      println("reduction: length(sols) = $(length(sols))")
+
       if is_valid(sol_main, sol_branch, sfcs)
-        return sols, true
+          println("FOUND VALID SOL! using sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
+        return sols, true # allows early termination
       end
     end
 
@@ -335,8 +354,9 @@ function gatekeeper(
   prob_branch = ODEProblem(closed_loop_backup_stop!, x0, (0.0, Tb), params_branch)
 
   # prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func)
-  prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func, reduction = reduction)
+  prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func, reduction = reduction, safetycopy=false)
 
+  println("constructed all the problems, solving...")
   sim = solve(
     prob_ensemble,
     Tsit5(),
@@ -345,12 +365,56 @@ function gatekeeper(
     batch_size = 1,
   )
 
+  println("ensemble solve is successful!i, plotting stuff")
+
+  ## plot stuff
+  plot_p1 = begin plot()
+  plot!(traj_nominal.xs, traj_nominal.ys, traj_nominal.zs; label="nominalTraj")
+  RS.plot_quad_traj!(sol_main, quad_params; label="main")
+  for (i, sol) in enumerate(sim)
+      RS.plot_quad_traj!(sol, quad_params;  label="branch $(i)")
+  end
+  plot!()
+  RS.plot_iso3d!()
+  end
+
+  plot_p2 = begin plot()
+      ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
+      # plot!(ts, traj_nominal.xs, label="nom x", marker=:dot)
+      #plot!(ts, traj_nominal.ys, label="nom y")
+      plot!(ts, traj_nominal.zs, label="nom z", marker=:dot)
+
+      # plot!(t->sol_main(t)[1], sol_main.t[1], sol_main.t[end], label="main x")
+      # plot!(t->sol_main(t)[2], sol_main.t[1], sol_main.t[end], label="main y")
+      plot!(t->sol_main(t)[3], sol_main.t[1], sol_main.t[end], label="main z")
+      
+      for (i, sol) in enumerate(sim)
+          # plot!(t->sol(t)[1], sol.t[1], sol.t[end], label="branch $(i) x")
+          # plot!(t->sol(t)[2], sol.t[1], sol.t[end], label= "branch $(i) y")
+          plot!(t->sol(t)[3], sol.t[1], sol.t[end], label= "branch $(i) z")
+      end
+      plot!(legend=false)
+  end
+
+  plot(plot_p1, plot_p2, layout=(@layout [a b]))
+
+  gui()
+
+  if length(sim) > 1
+      println("wait for keyboard")
+      readline()
+  end
+
+  # println("waiting for keyboard input...")
+  # readline()
 
   # do one more check for good measure
   if is_valid(sol_main, sim[end], sfcs)
-    return true, sol_main, sim[end]
+      println("Using $(sim[end].t[1] - sol_main.t[1])s of the main branch")
+      return true, sol_main, sim[end]
   end
 
+  println("gatekeeper failed...")
   return false, sol_main, sim[end]
 
 end
@@ -390,14 +454,11 @@ using PrecompileTools
 
   traj_nominal = GK.NominalTrajectory(0.0, dt, xs, ys, zs, yaws)
 
-  traj_committed = GK.NominalTrajectory(0.0, dt, xs, ys, zs, yaws)
-
-
   sfc_A = [[1;; 0 ;; 0.0];]
   sfc_b = [1.5];
   sfcs = [GK.SFC(sfc_A, sfc_b)]
 
-  res, sol_main, sols_branch = GK.gatekeeper(t0, x0, traj_nominal, traj_committed, sfcs)
+  res, sol_main, sol_branch = GK.gatekeeper(t0, x0, traj_nominal, sfcs)
   end
 
 end

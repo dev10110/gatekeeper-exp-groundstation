@@ -5,9 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Status1
-        - /Trajectories1
-        - /Trajectories1/NominalTrajectory1
-        - /CommittedTrajectory1
       Splitter Ratio: 0.5
     Tree Height: 360
   - Class: rviz_common/Selection
@@ -57,13 +54,22 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        vicon/px4_1/px4_1:
+          Value: true
+        vicon/world:
+          Value: true
+        vicon/world/NED:
+          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        vicon/world/NED:
+          vicon/world:
+            vicon/px4_1/px4_1:
+              {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -192,7 +198,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: true
+          Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 0.5
@@ -213,7 +219,7 @@ Visualization Manager:
             Value: /nvblox_node/esdf_pointcloud
           Use Fixed Frame: true
           Use rainbow: true
-          Value: true
+          Value: false
         - Alpha: 0.699999988079071
           Class: rviz_default_plugins/Map
           Color Scheme: map
@@ -245,7 +251,7 @@ Visualization Manager:
           Class: rviz_default_plugins/Pose
           Color: 255; 25; 0
           Enabled: true
-          Head Length: 0.30000001192092896
+          Head Length: 0.5
           Head Radius: 0.10000000149011612
           Name: PX4::trajSetpoint
           Shaft Length: 1
@@ -267,7 +273,27 @@ Visualization Manager:
           Enabled: true
           Head Length: 0.30000001192092896
           Head Radius: 0.10000000149011612
-          Name: Pose::GoalPose
+          Name: Joystick::GoalPose
+          Shaft Length: 1
+          Shaft Radius: 0.05000000074505806
+          Shape: Arrow
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Best Effort
+            Value: /goal_pose
+          Value: true
+        - Alpha: 1
+          Axes Length: 1
+          Axes Radius: 0.10000000149011612
+          Class: rviz_default_plugins/Pose
+          Color: 0; 255; 0
+          Enabled: true
+          Head Length: 0.30000001192092896
+          Head Radius: 0.10000000149011612
+          Name: MPC::GoalPose
           Shaft Length: 1
           Shaft Radius: 0.05000000074505806
           Shape: Arrow
@@ -285,49 +311,21 @@ Visualization Manager:
           Axes Radius: 0.009999999776482582
           Class: rviz_default_plugins/PoseArray
           Color: 255; 25; 0
-          Enabled: false
+          Enabled: true
           Head Length: 0.07000000029802322
           Head Radius: 0.029999999329447746
           Name: PoseArray::MPCTrajViz
           Shaft Length: 0.23000000417232513
           Shaft Radius: 0.009999999776482582
-          Shape: Axes
+          Shape: Arrow (3D)
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Best Effort
-            Value: /mpc_trajectory_viz
-          Value: false
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz_default_plugins/Path
-          Color: 25; 255; 0
-          Enabled: false
-          Head Diameter: 0.30000001192092896
-          Head Length: 0.20000000298023224
-          Length: 0.30000001192092896
-          Line Style: Lines
-          Line Width: 0.029999999329447746
-          Name: Path::Plan
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: Arrows
-          Radius: 0.029999999329447746
-          Shaft Diameter: 0.10000000149011612
-          Shaft Length: 0.10000000149011612
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /plan
-          Value: false
+            Value: /mpc_trajectory/viz
+          Value: true
         - Alpha: 1
           Arrow Length: 0.30000001192092896
           Axes Length: 0.30000001192092896
@@ -349,29 +347,71 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: nominal_trajectory/viz
           Value: true
+        - Alpha: 1
+          Arrow Length: 0.30000001192092896
+          Axes Length: 0.30000001192092896
+          Axes Radius: 0.009999999776482582
+          Class: rviz_default_plugins/PoseArray
+          Color: 255; 25; 0
+          Enabled: true
+          Head Length: 0.07000000029802322
+          Head Radius: 0.029999999329447746
+          Name: CommittedTrajectory
+          Shaft Length: 0.23000000417232513
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow (Flat)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: committed_trajectory/viz
+          Value: true
+        - Alpha: 1
+          Arrow Length: 0.10000000149011612
+          Axes Length: 0.30000001192092896
+          Axes Radius: 0.009999999776482582
+          Class: rviz_default_plugins/PoseArray
+          Color: 85; 255; 127
+          Enabled: true
+          Head Length: 0.07000000029802322
+          Head Radius: 0.029999999329447746
+          Name: PredTrajMain
+          Shaft Length: 0.23000000417232513
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow (Flat)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: predicted_trajectory/main/viz
+          Value: true
+        - Alpha: 1
+          Arrow Length: 0.30000001192092896
+          Axes Length: 0.30000001192092896
+          Axes Radius: 0.009999999776482582
+          Class: rviz_default_plugins/PoseArray
+          Color: 170; 255; 255
+          Enabled: true
+          Head Length: 0.07000000029802322
+          Head Radius: 0.029999999329447746
+          Name: PredTrajBackup
+          Shaft Length: 0.23000000417232513
+          Shaft Radius: 0.009999999776482582
+          Shape: Arrow (Flat)
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: predicted_trajectory/backup/viz
+          Value: true
       Enabled: true
       Name: Trajectories
-    - Alpha: 1
-      Arrow Length: 0.30000001192092896
-      Axes Length: 0.30000001192092896
-      Axes Radius: 0.009999999776482582
-      Class: rviz_default_plugins/PoseArray
-      Color: 255; 25; 0
-      Enabled: true
-      Head Length: 0.07000000029802322
-      Head Radius: 0.029999999329447746
-      Name: CommittedTrajectory
-      Shaft Length: 0.23000000417232513
-      Shaft Radius: 0.009999999776482582
-      Shape: Axes
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: committed_trajectory/viz
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -418,25 +458,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.425112009048462
+      Distance: 3.9095065593719482
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.43935203552246094
-        Y: 0.9203169345855713
-        Z: 0.795640230178833
+        X: 0.3459402620792389
+        Y: 0.14737284183502197
+        Z: 0.683968722820282
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.479796439409256
+      Pitch: 0.7347972989082336
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 6.032298564910889
+      Yaw: 1.09076726436615
     Saved: ~
 Window Geometry:
   Displays:

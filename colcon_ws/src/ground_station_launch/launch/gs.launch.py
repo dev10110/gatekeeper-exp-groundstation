@@ -23,9 +23,11 @@ def generate_launch_description():
     robot_name = "px4_1"
 
     # launch rviz with the teleop panel configuration
-    config_name = LaunchConfiguration('config_name', default='default.rviz')
-    config_path = PathJoinSubstitution([get_package_share_directory(
-        'ground_station_launch'), 'config', 'rviz', config_name])
+    # config_name = LaunchConfiguration('config_name', default='default.rviz')
+    # config_path = PathJoinSubstitution([get_package_share_directory(
+    #     'ground_station_launch'), 'config', 'rviz', config_name])
+    config_name = "groundstation.rviz"
+    config_path = "/root/colcon_ws/src/ground_station_launch/config/" + config_name
     global_frame = LaunchConfiguration('global_frame', default='vicon/world')
 
     # Rviz node
@@ -56,6 +58,25 @@ def generate_launch_description():
                 "0","0","0", f"{math.pi/2}", "0", f"{math.pi}", "/vicon/world/NED", "/vicon/world"]
             )
 
+    # plot the lab polygon
+    lab_poly = Node(
+            package="dasc_ros_utils",
+            executable="publish_lab_poly.py"
+            )
+
+    # video viewer
+    video_viewer = Node(
+            package="video_view",
+            executable="video_viewer_node",
+            parameters = [
+                {"image_topic": "/camera/color/image_raw"},
+                {"image_transport": "theora"},
+                {"rotate": "rotate_180"},
+                {"qos": "SENSOR_DATA"},
+                ]
+            )
+
+
     # decompros viz node
     # decomp_ros_viz = ComposableNode(
     #        namespace="camera",
@@ -63,18 +84,20 @@ def generate_launch_description():
     #        plugin="decompros::VizPoly"
     #        )
 
-    decomp_ros_viz = Node(
-            package="decomp_ros",
-            namespace="camera",
-            executable="vizPoly_node"
-            )
+    # decomp_ros_viz = Node(
+    #         package="decomp_ros",
+    #         namespace="camera",
+    #         executable="vizPoly_node"
+    #         )
 
     return LaunchDescription([
-        # rviz,
+        rviz,
         vicon,
         vicon_px4_bridge_node,
         vicon_world_NED,
-        decomp_ros_viz
+        # decomp_ros_viz
+        lab_poly,
+        # video_viewer,
         ])
 
 
