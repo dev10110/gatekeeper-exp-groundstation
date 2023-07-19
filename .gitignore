@@ -31,5 +31,9 @@ docs/site/
 # Manifest.toml
 
 
+## rosbags
+colcon_ws/rosbags/
+
+
 ## vim
 *.swp

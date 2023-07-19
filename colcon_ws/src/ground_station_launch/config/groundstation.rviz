@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Status1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 360
   - Class: rviz_common/Selection
@@ -54,6 +55,8 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
+        vicon/hubble/hubble:
+          Value: false
         vicon/px4_1/px4_1:
           Value: true
         vicon/world:
@@ -68,6 +71,8 @@ Visualization Manager:
       Tree:
         vicon/world/NED:
           vicon/world:
+            vicon/hubble/hubble:
+              {}
             vicon/px4_1/px4_1:
               {}
       Update Interval: 0
@@ -458,7 +463,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.9095065593719482
+      Distance: 4.228350639343262
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -473,10 +478,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7347972989082336
+      Pitch: 0.3247983157634735
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 1.09076726436615
+      Yaw: 1.4607658386230469
     Saved: ~
 Window Geometry:
   Displays:

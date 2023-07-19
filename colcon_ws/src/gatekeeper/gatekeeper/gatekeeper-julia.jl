@@ -380,18 +380,18 @@ function gatekeeper(
 
   plot_p2 = begin plot()
       ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
-      # plot!(ts, traj_nominal.xs, label="nom x", marker=:dot)
+      plot!(ts, traj_nominal.xs, label="nom x", marker=:dot)
       #plot!(ts, traj_nominal.ys, label="nom y")
-      plot!(ts, traj_nominal.zs, label="nom z", marker=:dot)
+      # plot!(ts, traj_nominal.zs, label="nom z", marker=:dot)
 
-      # plot!(t->sol_main(t)[1], sol_main.t[1], sol_main.t[end], label="main x")
+      plot!(t->sol_main(t)[1], sol_main.t[1], sol_main.t[end], label="main x")
       # plot!(t->sol_main(t)[2], sol_main.t[1], sol_main.t[end], label="main y")
-      plot!(t->sol_main(t)[3], sol_main.t[1], sol_main.t[end], label="main z")
+      # plot!(t->sol_main(t)[3], sol_main.t[1], sol_main.t[end], label="main z")
       
       for (i, sol) in enumerate(sim)
-          # plot!(t->sol(t)[1], sol.t[1], sol.t[end], label="branch $(i) x")
+          plot!(t->sol(t)[1], sol.t[1], sol.t[end], label="branch $(i) x")
           # plot!(t->sol(t)[2], sol.t[1], sol.t[end], label= "branch $(i) y")
-          plot!(t->sol(t)[3], sol.t[1], sol.t[end], label= "branch $(i) z")
+          # plot!(t->sol(t)[3], sol.t[1], sol.t[end], label= "branch $(i) z")
       end
       plot!(legend=false)
   end
@@ -400,10 +400,10 @@ function gatekeeper(
 
   gui()
 
-  if length(sim) > 1
-      println("wait for keyboard")
-      readline()
-  end
+  # if length(sim) > 1
+  #     println("wait for keyboard")
+  #     readline()
+  # end
 
   # println("waiting for keyboard input...")
   # readline()
