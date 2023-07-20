@@ -87,6 +87,9 @@ WORKDIR /root/colcon_ws/src/gatekeeper/gatekeeper
 RUN julia --sysimage /root/JuliaSysImage.so --project -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
 
+# install tf2-geometry-msgs
+RUN apt-get update && apt-get install -y ros-${ROS_DISTRO}-tf2-geometry-msgs
+
 
 # install the vimrc
 COPY vimrc /root/.vimrc

@@ -27,7 +27,7 @@ def generate_launch_description():
             executable='video_viewer_node',
             parameters=[
                 {"image_topic": "/camera/color/image_raw"},
-                {"image_transport": "theora"},
+                {"image_transport": "compressed"},
                 {"rotate": "rotate_180"},
                 {"qos": "SENSOR_DATA"}
                 ],
