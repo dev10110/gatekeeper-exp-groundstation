@@ -1,16 +1,19 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
         - /Status1
-        - /Sensing1
-        - /Mapping1
-        - /Mapping1/NvbloxMesh1
-        - /Mapping1/NvbloxMesh1/Status1
+        - /TF1/Frames1
+        - /TF1/Tree1
+        - /Sensing1/PointCloud2::RS1/Autocompute Value Bounds1
+        - /Mapping1/PointCloud2::ESDF1
+        - /Trajectories1
+        - /Trajectories1/CommittedTrajectory1
+        - /PX4::Setpoint1
       Splitter Ratio: 0.5
-    Tree Height: 360
+    Tree Height: 498
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -68,11 +71,7 @@ Visualization Manager:
           Value: true
         camera_link:
           Value: true
-        odom_origin:
-          Value: true
         vicon/px4_1/px4_1:
-          Value: true
-        vicon/rover_realsense/rover_realsense:
           Value: true
         vicon/world:
           Value: true
@@ -84,20 +83,17 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        vicon/world/NED:
-          vicon/world:
-            odom_origin:
-              {}
-            vicon/px4_1/px4_1:
-              camera_link:
-                camera_color_frame:
-                  camera_color_optical_frame:
-                    {}
-                camera_depth_frame:
-                  camera_depth_optical_frame:
-                    {}
-            vicon/rover_realsense/rover_realsense:
-              {}
+        vicon/world:
+          vicon/px4_1/px4_1:
+            camera_link:
+              camera_color_frame:
+                camera_color_optical_frame:
+                  {}
+              camera_depth_frame:
+                camera_depth_optical_frame:
+                  {}
+          vicon/world/NED:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -115,19 +111,6 @@ Visualization Manager:
       Value: true
     - Class: rviz_common/Group
       Displays:
-        - Class: rviz_default_plugins/Marker
-          Enabled: true
-          Name: Marker::SFC
-          Namespaces:
-            "": true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 100
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /camera/sfc/viz
-          Value: true
         - Class: rviz_default_plugins/Image
           Enabled: false
           Max Value: 1
@@ -176,58 +159,80 @@ Visualization Manager:
           Use Fixed Frame: false
           Use rainbow: true
           Value: false
-        - Class: rviz_default_plugins/Marker
-          Enabled: true
-          Name: Marker::SFCArray
-          Namespaces:
-            "": true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 100
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /camera/sfc_array/viz
-          Value: true
-      Enabled: true
+      Enabled: false
       Name: Sensing
     - Class: rviz_common/Group
       Displays:
         - Alpha: 1
-          Autocompute Intensity Bounds: true
+          Autocompute Intensity Bounds: false
           Autocompute Value Bounds:
-            Max Value: 5
-            Min Value: 0
-            Value: false
+            Max Value: 10
+            Min Value: -10
+            Value: true
           Axis: Z
           Channel Name: intensity
           Class: rviz_default_plugins/PointCloud2
           Color: 255; 255; 255
-          Color Transformer: AxisColor
+          Color Transformer: Intensity
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 4096
-          Min Color: 0; 0; 0
+          Max Color: 88; 88; 88
+          Max Intensity: 0.30000001192092896
+          Min Color: 255; 255; 255
           Min Intensity: 0
-          Name: PointCloud2::Octomap
+          Name: PointCloud2::ESDF
           Position Transformer: XYZ
-          Selectable: true
+          Selectable: false
           Size (Pixels): 3
-          Size (m): 0.10000000149011612
-          Style: Boxes
+          Size (m): 0.07999999821186066
+          Style: Tiles
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /octomap_point_cloud_centers
+            Value: /nvblox_node/esdf_pointcloud
           Use Fixed Frame: true
-          Use rainbow: true
+          Use rainbow: false
+          Value: true
+        - Alpha: 0.699999988079071
+          Class: rviz_default_plugins/Map
+          Color Scheme: map
+          Draw Behind: false
+          Enabled: false
+          Name: Map
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /global_map
+          Update Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /global_map_updates
+          Use Timestamp: false
           Value: false
-        - Alpha: 0.20000000298023224
+        - Ceiling Height: 2
+          Class: nvblox_rviz_plugin/NvbloxMesh
+          Cut Ceiling: true
+          Enabled: false
+          Mesh Color: Normals
+          Name: NvbloxMesh
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /nvblox_node/mesh
+          Value: false
+        - Alpha: 1
           Autocompute Intensity Bounds: false
           Autocompute Value Bounds:
             Max Value: 10
@@ -242,145 +247,42 @@ Visualization Manager:
           Enabled: false
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 0.5
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: PointCloud2::ESDF
+          Max Intensity: 1
+          Min Color: 147; 147; 147
+          Min Intensity: -1
+          Name: PointCloud2::ESDFAABB
           Position Transformer: XYZ
           Selectable: false
           Size (Pixels): 3
-          Size (m): 0.05000000074505806
-          Style: Tiles
+          Size (m): 0.07999999821186066
+          Style: Boxes
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /nvblox_node/esdf_pointcloud
+            Value: /nvblox_node/esdfAABB_pointcloud
           Use Fixed Frame: true
-          Use rainbow: true
+          Use rainbow: false
           Value: false
-        - Alpha: 0.699999988079071
-          Class: rviz_default_plugins/Map
-          Color Scheme: map
-          Draw Behind: false
-          Enabled: false
-          Name: Map
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /global_costmap/costmap
-          Update Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /global_costmap/costmap_updates
-          Use Timestamp: false
-          Value: false
-        - Ceiling Height: 2
-          Class: nvblox_rviz_plugin/NvbloxMesh
-          Cut Ceiling: true
+        - Class: rviz_default_plugins/Marker
           Enabled: true
-          Mesh Color: Color
-          Name: NvbloxMesh
+          Name: NvBlox::SFC
+          Namespaces:
+            "": true
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /nvblox_node/mesh
+            Value: /nvblox_node/sfc/viz
           Value: true
       Enabled: true
       Name: Mapping
     - Class: rviz_common/Group
       Displays:
-        - Alpha: 1
-          Axes Length: 1
-          Axes Radius: 0.10000000149011612
-          Class: rviz_default_plugins/Pose
-          Color: 255; 25; 0
-          Enabled: true
-          Head Length: 0.5
-          Head Radius: 0.10000000149011612
-          Name: PX4::trajSetpoint
-          Shaft Length: 1
-          Shaft Radius: 0.05000000074505806
-          Shape: Arrow
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /px4_1/viz/trajectory_setpoint
-          Value: true
-        - Alpha: 1
-          Axes Length: 1
-          Axes Radius: 0.10000000149011612
-          Class: rviz_default_plugins/Pose
-          Color: 0; 255; 0
-          Enabled: true
-          Head Length: 0.30000001192092896
-          Head Radius: 0.10000000149011612
-          Name: Joystick::GoalPose
-          Shaft Length: 1
-          Shaft Radius: 0.05000000074505806
-          Shape: Arrow
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /goal_pose
-          Value: true
-        - Alpha: 1
-          Axes Length: 1
-          Axes Radius: 0.10000000149011612
-          Class: rviz_default_plugins/Pose
-          Color: 0; 255; 0
-          Enabled: true
-          Head Length: 0.30000001192092896
-          Head Radius: 0.10000000149011612
-          Name: MPC::GoalPose
-          Shaft Length: 1
-          Shaft Radius: 0.05000000074505806
-          Shape: Arrow
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /mpc_goal_viz
-          Value: true
-        - Alpha: 1
-          Arrow Length: 0.30000001192092896
-          Axes Length: 0.30000001192092896
-          Axes Radius: 0.009999999776482582
-          Class: rviz_default_plugins/PoseArray
-          Color: 255; 25; 0
-          Enabled: true
-          Head Length: 0.07000000029802322
-          Head Radius: 0.029999999329447746
-          Name: PoseArray::MPCTrajViz
-          Shaft Length: 0.23000000417232513
-          Shaft Radius: 0.009999999776482582
-          Shape: Arrow (3D)
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Best Effort
-            Value: /mpc_trajectory/viz
-          Value: true
         - Alpha: 1
           Arrow Length: 0.30000001192092896
           Axes Length: 0.30000001192092896
@@ -389,10 +291,10 @@ Visualization Manager:
           Color: 255; 255; 255
           Enabled: true
           Head Length: 0.07000000029802322
-          Head Radius: 0.029999999329447746
+          Head Radius: 0.05999999865889549
           Name: NominalTrajectory
-          Shaft Length: 0.23000000417232513
-          Shaft Radius: 0.009999999776482582
+          Shaft Length: 0.10000000149011612
+          Shaft Radius: 0.029999999329447746
           Shape: Arrow (3D)
           Topic:
             Depth: 5
@@ -400,7 +302,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: nominal_trajectory/viz
+            Value: /nominal_traj/viz
           Value: true
         - Alpha: 1
           Arrow Length: 0.30000001192092896
@@ -414,59 +316,37 @@ Visualization Manager:
           Name: CommittedTrajectory
           Shaft Length: 0.23000000417232513
           Shaft Radius: 0.009999999776482582
-          Shape: Arrow (Flat)
+          Shape: Arrow (3D)
           Topic:
             Depth: 5
             Durability Policy: Volatile
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: committed_trajectory/viz
-          Value: true
-        - Alpha: 1
-          Arrow Length: 0.10000000149011612
-          Axes Length: 0.30000001192092896
-          Axes Radius: 0.009999999776482582
-          Class: rviz_default_plugins/PoseArray
-          Color: 85; 255; 127
-          Enabled: true
-          Head Length: 0.07000000029802322
-          Head Radius: 0.029999999329447746
-          Name: PredTrajMain
-          Shaft Length: 0.23000000417232513
-          Shaft Radius: 0.009999999776482582
-          Shape: Arrow (Flat)
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: predicted_trajectory/main/viz
-          Value: true
-        - Alpha: 1
-          Arrow Length: 0.30000001192092896
-          Axes Length: 0.30000001192092896
-          Axes Radius: 0.009999999776482582
-          Class: rviz_default_plugins/PoseArray
-          Color: 170; 255; 255
-          Enabled: true
-          Head Length: 0.07000000029802322
-          Head Radius: 0.029999999329447746
-          Name: PredTrajBackup
-          Shaft Length: 0.23000000417232513
-          Shaft Radius: 0.009999999776482582
-          Shape: Arrow (Flat)
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: predicted_trajectory/backup/viz
+            Value: committed_traj/viz
           Value: true
       Enabled: true
       Name: Trajectories
+    - Alpha: 1
+      Axes Length: 0.20000000298023224
+      Axes Radius: 0.029999999329447746
+      Class: rviz_default_plugins/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: PX4::Setpoint
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /px4_1/viz/trajectory_setpoint
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -513,35 +393,35 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 17.627660751342773
+      Distance: 2.8947408199310303
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.6151554584503174
-        Y: -0.8562281727790833
-        Z: 1.3471771478652954
+        X: 0.8938931226730347
+        Y: 1.029981255531311
+        Z: 0.6026471257209778
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9097959995269775
+      Pitch: 0.0902031883597374
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 1.550758957862854
+      Yaw: 4.5749030113220215
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
   Height: 1016
   Hide Left Dock: false
-  Hide Right Dock: false
+  Hide Right Dock: true
   Image:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001d10000035efc020000000bfb0000001200530065006c0065006300740069006f006e000000003b000000820000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b000001f1000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065020000042a0000018b000001d1000001b2fb0000000a0049006d00610067006500000001a3000000bc0000000000000000fb0000000c00540065006c0065006f00700100000232000001670000011d00ffffff000000010000010f0000035efc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003b0000035e000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007500000003efc0100000002fb0000000800540069006d00650100000000000007500000024400fffffffb0000000800540069006d00650100000000000004500000000000000000000004640000035e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000244000003a2fc020000000cfb0000001200530065006c0065006300740069006f006e000000003b000000820000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000022d000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000000a0049006d006100670065020000042a0000018b000001d1000001b2fb0000000a0049006d00610067006500000001a3000000bc0000000000000000fb0000000c00540065006c0065006f0070010000026e000001320000013200fffffffb0000000800540069006d006501000003a6000000370000003700ffffff000000010000010f0000035efc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073000000003b0000035e000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007500000003efc0100000001fb0000000800540069006d006501000000000000045000000000000000000000015e000003a200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Teleop:
@@ -551,7 +431,7 @@ Window Geometry:
   Tool Properties:
     collapsed: false
   Views:
-    collapsed: false
-  Width: 1872
-  X: 48
+    collapsed: true
+  Width: 936
+  X: 984
   Y: 27

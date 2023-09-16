@@ -22,3 +22,9 @@
 [submodule "colcon_ws/src/ros2-video-view"]
 	path = colcon_ws/src/ros2-video-view
 	url = git@github.com:dev10110/ros2-video-view.git
+[submodule "colcon_ws/src/ros2-vicon-bridge"]
+	path = colcon_ws/src/ros2-vicon-bridge
+	url = git@github.com:dasc-lab/ros2-vicon-bridge.git
+[submodule "colcon_ws/src/ros2-ping"]
+	path = colcon_ws/src/ros2-ping
+	url = git@github.com:dasc-lab/ros2-ping.git

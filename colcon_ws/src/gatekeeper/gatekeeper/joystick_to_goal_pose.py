@@ -61,6 +61,7 @@ class JoyGoal(Node):
 
     def  pos_callback(self, msg):
         if not (msg.xy_valid and msg.z_valid and msg.heading_good_for_control):
+            print("px4 position message not valid exiting")
             return
 
         self.current_pos = np.array([msg.y, msg.x, -msg.z], dtype=np.float32)

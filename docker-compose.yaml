@@ -14,6 +14,6 @@ services:
     environment:
       - DISPLAY=$DISPLAY
         # - FASTRTPS_DEFAULT_PROFILES_FILE=/root/super_client_configuration_file.xml
-      # - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
       # - ROS_DISCOVERY_SERVER=192.168.1.150:11811
       - ROS_DOMAIN_ID=2

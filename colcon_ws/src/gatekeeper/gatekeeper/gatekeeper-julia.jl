@@ -9,9 +9,13 @@ println("gatekeeper imports")
 @time using Interpolations
 @time using ForwardDiff
 @time using Parameters
+@time using OSQP
+@time using SparseArrays
 
-
-@time using Plots
+const do_plots = false
+if do_plots
+  @time using Plots
+end
 
 @time using DifferentialEquations
 
@@ -56,6 +60,7 @@ struct SFC{F, VF<:AbstractVector{F}, MF<:AbstractMatrix{F}}
     A::MF
     b::VF
 end
+SFC() = SFC(zeros(0, 3), zeros(0)) # create an empty sfc
 
 const SM3{F} = SMatrix{3,3,F,9}
 const SV3{F} = SVector{3,F}
@@ -199,9 +204,18 @@ function is_valid(sol1, sol2, sfcs)
       return false
   end
 
+  # check that the last state lies in twice the shrink size
+  default_shrink=0.0
+  final_shrink = 0.0 # check that the last state is atleast 0.2 m away from obstacles
+
+  state_f = sol2.u[end]
+  if !state_in_sfcs(state_f.x, sfcs; shrink=final_shrink)
+      return false
+  end
+
   # check that branch lies in the sfc
   for state in reverse(sol2.u)
-      if !state_in_sfcs(state.x, sfcs)
+      if !state_in_sfcs(state.x, sfcs; shrink=default_shrink)
           return false
       end
   end
@@ -209,7 +223,7 @@ function is_valid(sol1, sol2, sfcs)
   # check that main lies in the sfc
   for i in reverse(1:length(sol1.u))
     if sol1.t[i] < t1 # only check those before the branching
-        if !state_in_sfcs(sol1.u[i].x, sfcs)
+        if !state_in_sfcs(sol1.u[i].x, sfcs; shrink=default_shrink)
         return false
       end
     end
@@ -224,9 +238,10 @@ end
 """
 check if it lies in any one of an array of sfcs
 """
-function state_in_sfcs(state, sfcs)
+function state_in_sfcs(pos, sfcs; shrink=0.0)
     for (i, sfc)  in enumerate(sfcs)
-        if all(sfc.A * state .<= sfc.b)
+        shrink_v = shrink * [1.0/norm(sfc.A[j, :]) for j=1:size(sfc.A, 1)]
+        if all(sfc.A * pos .<= (sfc.b - shrink_v ))
             return true
         end
     end
@@ -236,10 +251,6 @@ end
 function is_stopped(state; eps= 0.05)
     return norm(state.v) <= eps # cm/s
 end
-
-
-
-
 
 
 
@@ -258,20 +269,52 @@ function construct_main_branch(
 
   ## first simulate tracking nominal for Ts seconds
   tf_traj = traj_nominal.t0 + traj_nominal.dt * (length(traj_nominal.xs) - 1)
-  @show tf_traj
 
   tf = min(t0 + Ts_max, tf_traj)
   
-  @show tf
   tspan =(t0,  tf)
-
-  @show tspan
 
   prob = ODEProblem(closed_loop_tracking_nominal!, x0, tspan, params)
   sol = solve(prob, Tsit5(), abstol = 1e-6, reltol = 1e-3)
 
   return sol
 
+
+end
+
+
+function get_min_dist(pos, sfc; shrink=0.0)
+
+    # solve minimize (x - p)'(x-p) such that A x <= b
+    # solve minimize 0.5 x'x - p'x such that Ax <= b
+    
+
+    # Define problem data
+    P = sparse(1.0 * I(3))
+    q = -pos
+    A = sparse(sfc.A)
+    l = [-Inf for c in sfc.b]
+    u = sfc.b - shrink * [1/norm(sfc.A[j,:]) for j=1:size(sfc.A, 1)]
+
+    if any(isnan.(u))
+        println("GET MIN DIST U HAS NAN")
+        println(u)
+    end
+    
+    # Crate OSQP object
+    prob = OSQP.Model()
+    
+    # Setup workspace and change alpha parameter
+    OSQP.setup!(prob; P=P, q=q, A=A, l=l, u=u, verbose=false)
+    
+    # Solve problem
+    res = OSQP.solve!(prob)
+
+
+    x = res.x
+
+
+    return norm(x - pos)
 
 end
 
@@ -291,6 +334,21 @@ function gatekeeper(
   # x0 is expected to be in format of quadrotor state: (x, v, R, \Omega, \omega)
   println("Running gatekeeper with t0: $(t0)")
 
+
+  starts_in_some_sfc = false
+  if !state_in_sfcs(x0.x, sfcs; shrink=0.00)
+      println("x0 NOT IN ANY SFCS!!")
+
+
+      # get min dist
+      for sfc in sfcs
+          d = get_min_dist(x0.x, sfc; shrink=0.00)
+          println("min_dist to sfc: $(d)")
+      end
+
+  end
+      
+
   # first construct the main branch of the solution
   sol_main = construct_main_branch(t0, x0, traj_nominal)
 
@@ -300,7 +358,7 @@ function gatekeeper(
   # now choose a bunch of Ts
   candidate_Ts = range(start = sol_main.t[end] , stop = sol_main.t[1], length = 11)
 
-  println("candidate Ts: $(candidate_Ts)")
+  # println("candidate Ts: $(candidate_Ts)")
 
   function prob_func(prob, i, repeat)
     Ts = candidate_Ts[i]
@@ -319,7 +377,7 @@ function gatekeeper(
       0.0,  # yaw accel
     )
     tspan = (Ts, Ts+Tb)
-    println("remaking for i=$(i), using tspan $(tspan), with target: $(stop_pos)")
+    # println("remaking for i=$(i), using tspan $(tspan), with target: $(stop_pos)")
     remake(
       prob,
       u0 = ic,
@@ -330,17 +388,17 @@ function gatekeeper(
 
   function reduction(sols, new_sols, I)
 
-      println("reduction: length(new_sols) = $(length(new_sols))")
+      # println("reduction: length(new_sols) = $(length(new_sols))")
 
     # check validity - if it is valid, exit!
     for sol_branch in new_sols
-        println("checking reduction for sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
+        # println("checking reduction for sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
         push!(sols, sol_branch)
         
-      println("reduction: length(sols) = $(length(sols))")
+      # println("reduction: length(sols) = $(length(sols))")
 
       if is_valid(sol_main, sol_branch, sfcs)
-          println("FOUND VALID SOL! using sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
+          # println("FOUND VALID SOL! using sol.tspan = $(sol_branch.t[1])::$(sol_branch.t[end])")
         return sols, true # allows early termination
       end
     end
@@ -356,7 +414,6 @@ function gatekeeper(
   # prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func)
   prob_ensemble = EnsembleProblem(prob_branch, prob_func = prob_func, reduction = reduction, safetycopy=false)
 
-  println("constructed all the problems, solving...")
   sim = solve(
     prob_ensemble,
     Tsit5(),
@@ -365,48 +422,74 @@ function gatekeeper(
     batch_size = 1,
   )
 
-  println("ensemble solve is successful!i, plotting stuff")
-
   ## plot stuff
-  plot_p1 = begin plot()
-  plot!(traj_nominal.xs, traj_nominal.ys, traj_nominal.zs; label="nominalTraj")
-  RS.plot_quad_traj!(sol_main, quad_params; label="main")
-  for (i, sol) in enumerate(sim)
-      RS.plot_quad_traj!(sol, quad_params;  label="branch $(i)")
+  if do_plots 
+
+      @assert false "this code is commented"
+  #     plot_p1 = begin plot()
+  #     plot!(traj_nominal.xs, traj_nominal.ys, traj_nominal.zs; label="nominalTraj")
+  #     RS.plot_quad_traj!(sol_main, quad_params; label="main")
+  #     for (i, sol) in enumerate(sim)
+  #         RS.plot_quad_traj!(sol, quad_params;  label="branch $(i)")
+  #     end
+  #     plot!(label=false)
+  #     RS.plot_iso3d!()
+  #     end
+
+  #     plot_p2_x = begin 
+  #         plot()
+  #         ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
+  #         plot!(ts, traj_nominal.xs, label="nom x", marker=:dot)
+
+  #         plot!(t->sol_main(t)[1], sol_main.t[1], sol_main.t[end], label="main x")
+  #         
+  #         for (i, sol) in enumerate(sim)
+  #             plot!(t->sol(t)[1], sol.t[1], sol.t[end], label="branch $(i) x")
+  #         end
+  #         ylabel!("x [m]")
+  #         plot!(legend=false)
+  #     end
+  #     plot_p2_y = begin 
+  #         plot()
+  #         ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
+  #         plot!(ts, traj_nominal.ys, label="nom y", marker=:dot)
+
+  #         plot!(t->sol_main(t)[2], sol_main.t[1], sol_main.t[end], label="main y")
+  #         
+  #         for (i, sol) in enumerate(sim)
+  #             plot!(t->sol(t)[2], sol.t[1], sol.t[end], label="branch $(i) y")
+  #         end
+  #         ylabel!("y [m]")
+  #         plot!(legend=false)
+  #     end
+  #     
+  #     plot_p2_z = begin 
+  #         plot()
+  #         ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
+  #         plot!(ts, traj_nominal.zs, label="nom z", marker=:dot)
+
+  #         plot!(t->sol_main(t)[3], sol_main.t[1], sol_main.t[end], label="main z")
+  #         
+  #         for (i, sol) in enumerate(sim)
+  #             plot!(t->sol(t)[3], sol.t[1], sol.t[end], label="branch $(i) z")
+  #         end
+  #         ylabel!("z [m]")
+  #         plot!(legend=false)
+  #     end
+
+  #     plot(plot_p1, plot_p2_x, plot_p2_y, plot_p2_z, layout=(@layout [a [b; c; d]]))
+
+  #     gui()
+
+
+  #     # if length(sim) > 1
+  #     #     println("wait for keyboard")
+  #     #     readline()
+  #     # end
+
+  #     # println("waiting for keyboard input...")
+  #     # readline()
   end
-  plot!()
-  RS.plot_iso3d!()
-  end
-
-  plot_p2 = begin plot()
-      ts = [traj_nominal.t0 + (i-1) * traj_nominal.dt for i in 1:length(traj_nominal.xs)]
-      plot!(ts, traj_nominal.xs, label="nom x", marker=:dot)
-      #plot!(ts, traj_nominal.ys, label="nom y")
-      # plot!(ts, traj_nominal.zs, label="nom z", marker=:dot)
-
-      plot!(t->sol_main(t)[1], sol_main.t[1], sol_main.t[end], label="main x")
-      # plot!(t->sol_main(t)[2], sol_main.t[1], sol_main.t[end], label="main y")
-      # plot!(t->sol_main(t)[3], sol_main.t[1], sol_main.t[end], label="main z")
-      
-      for (i, sol) in enumerate(sim)
-          plot!(t->sol(t)[1], sol.t[1], sol.t[end], label="branch $(i) x")
-          # plot!(t->sol(t)[2], sol.t[1], sol.t[end], label= "branch $(i) y")
-          # plot!(t->sol(t)[3], sol.t[1], sol.t[end], label= "branch $(i) z")
-      end
-      plot!(legend=false)
-  end
-
-  plot(plot_p1, plot_p2, layout=(@layout [a b]))
-
-  gui()
-
-  # if length(sim) > 1
-  #     println("wait for keyboard")
-  #     readline()
-  # end
-
-  # println("waiting for keyboard input...")
-  # readline()
 
   # do one more check for good measure
   if is_valid(sol_main, sim[end], sfcs)
@@ -414,7 +497,7 @@ function gatekeeper(
       return true, sol_main, sim[end]
   end
 
-  println("gatekeeper failed...")
+  # println("gatekeeper failed...")
   return false, sol_main, sim[end]
 
 end

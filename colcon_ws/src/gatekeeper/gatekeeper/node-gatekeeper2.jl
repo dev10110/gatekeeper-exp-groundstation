@@ -16,6 +16,7 @@ RS = RoboticSystems
 using ComponentArrays
 using LinearAlgebra
 using ForwardDiff
+import Dates
 
 
 ## RCLPY imports
@@ -24,6 +25,7 @@ node = pyimport("rclpy.node")
 dasc_msgs = pyimport("dasc_msgs.msg")
 px4_msgs = pyimport("px4_msgs.msg")
 geometry_msgs = pyimport("geometry_msgs.msg")
+decomp_ros_msgs = pyimport("decomp_ros_msgs.msg")
 qos = pyimport("rclpy.qos")
 transforms3d = pyimport("transforms3d")
 np = pyimport("numpy")
@@ -48,6 +50,14 @@ function rot2quat(R)
     return q
 end
 
+function toVector3(v)
+    msg = geometry_msgs.Vector3()
+    msg.x = v[1]
+    msg.y = v[2]
+    msg.z = v[3]
+    return msg
+end
+
 
 # listen on nominal trajectory
 # publish on committed trajectory
@@ -62,12 +72,14 @@ mutable struct NodeData
     pub_comTrajViz
     pub_predTrajMainViz
     pub_predTrajBackupViz
+    pub_sfcViz
+    home_sfc
+    sfcs
 end
 
 
 
 # use a offset to make numbers more reasonable unix time 1689163200 = July 12 2023 12 noon gmt
-import Dates
 const T_OFFSET_SECONDS = floor(Int64, Dates.datetime2unix(Dates.now())) # 1689163200
 # const T_OFFSET_SECONDS = 1689163200
 
@@ -180,7 +192,27 @@ function convertToPredicted(sol_main, sol_branch, dt=0.1, frame_id = "vicon/worl
 
 end
 
-function convertToCommitted(sol_main, sol_branch, dt=0.1, frame_id = "vicon/world", shift=0.2)
+function rotMatrix_to_rosQuat(R)
+
+  q = RS.Rotations.QuatRotation(R)
+
+  # create geometry_msgs q
+  quat = geometry_msgs.Quaternion()
+
+  # copy over data
+  quat.x = q.x
+  quat.y = q.y
+  quat.z = q.z
+  quat.w = q.w
+
+
+  return quat
+
+end
+
+
+
+function convertToCommitted(sol_main, sol_branch, dt=0.1, frame_id = "vicon/world", shift=0.1)
 
 
     comTraj = dasc_msgs.DITrajectory()
@@ -205,7 +237,7 @@ function convertToCommitted(sol_main, sol_branch, dt=0.1, frame_id = "vicon/worl
         pose.position.x = state.x[1]
         pose.position.y = state.x[2]
         pose.position.z = state.x[3]
-        # pose.orientation = # TODO!
+        pose.orientation = rotMatrix_to_rosQuat(state.R)
         comTraj.poses.append(pose)
         # println("MAIN: $(state.x)")
 
@@ -229,7 +261,7 @@ function convertToCommitted(sol_main, sol_branch, dt=0.1, frame_id = "vicon/worl
         pose.position.x = state.x[1]
         pose.position.y = state.x[2]
         pose.position.z = state.x[3]
-        # pose.orientation = # TODO!
+        pose.orientation = rotMatrix_to_rosQuat(state.R)
         comTraj.poses.append(pose)
         # println("BRANCH: $(state.x)")
 
@@ -326,6 +358,62 @@ function convertFromState(stateMsg)
 end
 
 
+function convertFromSFC(poly)
+
+   N = pylen(poly.ps)
+   A = zeros(N, 3)
+   b = zeros(N)
+
+   for i=1:N
+       py_p = poly.ps[i-1]
+       py_n = poly.ns[i-1]
+
+       p = [pyconvert(Float64,s) for s in (py_p.x, py_p.y, py_p.z)]
+       n = [pyconvert(Float64,s) for s in (py_n.x, py_n.y, py_n.z)]
+
+       A[i, :] .= n
+       b[i] = dot(n, p)
+   end
+
+   return GK.SFC(A, b)
+end
+
+function sfcArrayCallback(nodeData, msg)
+
+    if (pyconvert(String, msg.header.frame_id) != "vicon/world")
+        println("sfc is not in world frame")
+        return
+    end
+
+    # nodeData.sfcs = [nodeData.home_sfc]
+    nodeData.sfcs = GK.SFC[]
+
+    N = pylen(msg.polys)
+    for i=1:N
+        sfc = convertFromSFC(msg.polys[i-1].poly)
+        push!(nodeData.sfcs, sfc)
+    end
+
+end
+
+function sfcCallback(nodeData, msg)
+
+    if (pyconvert(String, msg.header.frame_id) != "vicon/world")
+        println("sfc is not in world frame")
+        return
+    end
+
+    # nodeData.sfcs = GK.SFC[]
+    sfc = convertFromSFC(msg.poly)
+    nodeData.sfcs = [nodeData.home_sfc, sfc]
+    # nodeData.sfcs = [ sfc]
+
+    println("running sfc callback")
+
+    return
+
+end
+
 function goalMsgCallbackTimed(nodeData, msg)
     goalMsgCallback(nodeData, msg)
 end
@@ -369,69 +457,21 @@ function run_gatekeeper(nodeData)
     end
 
 
-    println("RUNNING GATEKEEPER!")
-
-
-    # ## check if the nomTraj has run out
-    # if past_nomTraj(nodeData)
-    #     nodeData.nomTraj_initialized = false
-    #     println("past nom traj; pausing")
-    #     return
-    # end
-
-    # comTraj = dasc_msgs.DITrajectory()
-    # comTraj.header = nodeData.goalMsg.header
-    # comTraj.dt = nodeData.nomTrajMsg.dt 
-
-
     # convert ros messages to julia format
     t0, x0 = convertFromState(nodeData.stateMsg)
     nomTraj = convertFromNominal(t0, nodeData.goalMsg)
-
-    # convert the sfcs
-    sfc_A = [
-             [1;; 0 ;; 0.0];
-             [-1;; 0 ;; 0.0];
-             [0;; 1 ;; 0.0];
-             [0;; -1 ;; 0.0];
-             [0;; 0 ;; 1];
-            ]
-    sfc_b = [0.5, 0.5, 0.5, 0.5, 1.5]  
-    home_sfc = GK.SFC(sfc_A, sfc_b) # small cuboid in the middle that is safe
     
-
-    # dummy sfc for testing
-    fov_sfc = GK.SFC(
-                     [[1;; 0 ;; 0.0];
-                      # [-1;; 0 ;; 0.0];
-                      # [0;; 1 ;; 0.0];
-                      # [0;; -1 ;; 0.0];
-                      # [0;; 0 ;; 1];
-                      # [0;; 0 ;; -1];
-                     ],
-                     [1.0,
-		      # 0.0, 0.5, 0.5, 1.5, 0.0
-		      ]
-                    ) # x <= 1.5
-
-    sfcs = [
-            fov_sfc,
-            home_sfc
-           ]
-
-    # get the timing right: use the current state timestamp as the 
-
     # use the gatekeeper module to get the trajectory
     suc, sol_main, sol_branch  = GK.gatekeeper(
                                                t0,
                                                x0,
                                                nomTraj,
-                                               sfcs)
+                                               nodeData.sfcs)
 
 
     # check if replanning was successful
     if (!suc) 
-        println("suc: $(suc)")
+        # println("suc: $(suc)")
         return
     end
 
@@ -445,9 +485,52 @@ function run_gatekeeper(nodeData)
 
     # publish
     publish_committed(nodeData, comTraj)
-    publish_predicted(nodeData, predTrajs)
-    # publish_sfcs_viz(nodeData, sfcs)
+    # publish_predicted(nodeData, predTrajs)
+    publish_sfcs_viz(nodeData, comTraj.header)
 end
+
+function sfc2polymsg(sfc, header)
+
+    poly = decomp_ros_msgs.PolyhedronStamped()
+    poly.header = header 
+
+    N = size(sfc.A, 1)
+    for i=1:N
+        # convert each to a polyhedron
+        n = toVector3(sfc.A[i, :])
+        p = geometry_msgs.Point()
+
+        if (sfc.A[i, 1] != 0)
+          p.x = sfc.b[i]/sfc.A[i,1]
+        elseif (sfc.A[i, 2] != 0)
+            p.y = sfc.b[i]/sfc.A[i,2]
+        elseif (sfc.A[i, 3] != 0)
+            p.z = sfc.b[i] / sfc.A[i, 3]
+        end
+
+        poly.poly.ns.append(n)
+        poly.poly.ps.append(p)
+    end
+
+    return poly
+
+end
+
+function publish_sfcs_viz(nodeData, header)
+
+    msg = decomp_ros_msgs.PolyhedronArray()
+    msg.header = header
+    
+    for sfc in nodeData.sfcs
+        poly_msg = sfc2polymsg(sfc, header)
+        msg.polys.append(poly_msg)
+    end
+
+    nodeData.pub_sfcViz.publish(msg)
+end
+
+        
+
 
 function publish_committed(nodeData, trajMsg)
 
@@ -493,6 +576,21 @@ function main()
     pub_predTrajBackupViz = node_.create_publisher(geometry_msgs.PoseArray, 
                                          "predicted_trajectory/backup/viz",
                                          10)
+    pub_sfcViz= node_.create_publisher(decomp_ros_msgs.PolyhedronArray, 
+                                       "gatekeeper/sfc_debug",
+                                         10)
+
+    # create the home sfc
+    sfc_A = [
+             [1;; 0 ;; 0.0];
+             [-1;; 0 ;; 0.0];
+             [0;; 1 ;; 0.0];
+             [0;; -1 ;; 0.0];
+             [0;; 0 ;; 1];
+             [0;; 0 ;; -1];
+            ]
+    sfc_b = [0.5, 0.5, 0.5, 0.5, 1.5, 0.5]  
+    home_sfc = GK.SFC(sfc_A, sfc_b) # small cuboid in the middle that is safe
 
     # create nodeData struct
     nodeData = NodeData(
@@ -505,7 +603,10 @@ function main()
                         pub_comTraj,
                         pub_comTrajViz,
                         pub_predTrajMainViz,
-                        pub_predTrajBackupViz
+                        pub_predTrajBackupViz,
+                        pub_sfcViz,
+                        home_sfc,
+                        [home_sfc]
                        )
 
     # subscribers
@@ -523,15 +624,25 @@ function main()
                              "goal_pose", 
                              msg->goalMsgCallbackTimed(nodeData, msg),
                              1) 
+
+    # node_.create_subscription(decomp_ros_msgs.PolyhedronArray(),
+    #                         "/camera/sfc_array",
+    #                         msg->sfcArrayCallback(nodeData, msg),
+    #                         1)
+    
+    node_.create_subscription(decomp_ros_msgs.PolyhedronStamped(),
+                            "/nvblox_node/sfc",
+                            msg->sfcCallback(nodeData, msg),
+                            1)
     # timers
-    node_.create_timer(0.05, ()->run_gatekeeper(nodeData))
+    node_.create_timer(0.2, ()->run_gatekeeper(nodeData))
 
     # start the spinner
     rclpy.spin(node_)
 
     # run the shutdown
-    node_.destroy_node()
-    rclpy.shutdown()
+    # node_.destroy_node()
+    # rclpy.shutdown()
 
 
 end

@@ -78,11 +78,16 @@ def generate_launch_description():
 
 
     # decompros viz node
-    # decomp_ros_viz = ComposableNode(
-    #        namespace="camera",
-    #        package="decomp_ros",
-    #        plugin="decompros::VizPoly"
-    #        )
+    decomp_ros_viz = Node(
+           namespace="camera",
+           package="decomp_ros",
+           executable="vizPoly_node"
+           )
+    decomp_ros_nvblox_viz = Node(
+           namespace="nvblox_node",
+           package="decomp_ros",
+           executable="vizPoly_node"
+           )
 
     # decomp_ros_viz = Node(
     #         package="decomp_ros",
@@ -92,10 +97,11 @@ def generate_launch_description():
 
     return LaunchDescription([
         rviz,
-        vicon,
-        vicon_px4_bridge_node,
-        vicon_world_NED,
-        # decomp_ros_viz
+        # vicon,
+        # vicon_px4_bridge_node,
+        # vicon_world_NED,
+        decomp_ros_viz,
+        decomp_ros_nvblox_viz,
         lab_poly,
         # video_viewer,
         ])
