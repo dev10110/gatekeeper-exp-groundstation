@@ -28,3 +28,9 @@
 [submodule "colcon_ws/src/ros2-ping"]
 	path = colcon_ws/src/ros2-ping
 	url = git@github.com:dasc-lab/ros2-ping.git
+[submodule "colcon_ws/src/nml_bag"]
+	path = colcon_ws/src/nml_bag
+	url = git@github.com:ricmua/nml_bag.git
+[submodule "colcon_ws/src/ros2_numpy"]
+	path = colcon_ws/src/ros2_numpy
+	url = git@github.com:Box-Robotics/ros2_numpy.git

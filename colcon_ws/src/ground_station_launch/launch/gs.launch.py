@@ -23,18 +23,33 @@ def generate_launch_description():
     robot_name = "px4_1"
 
     # launch rviz with the teleop panel configuration
-    # config_name = LaunchConfiguration('config_name', default='default.rviz')
-    # config_path = PathJoinSubstitution([get_package_share_directory(
-    #     'ground_station_launch'), 'config', 'rviz', config_name])
-    config_name = "groundstation.rviz"
-    config_path = "/root/colcon_ws/src/ground_station_launch/config/" + config_name
+    config0_name = "teleop.rviz"
+    config0_path = "/root/colcon_ws/src/ground_station_launch/config/" + config0_name
+    config1_name = "groundstation.rviz"
+    config1_path = "/root/colcon_ws/src/ground_station_launch/config/" + config1_name
+    config2_name = "groundstation_mapping.rviz"
+    config2_path = "/root/colcon_ws/src/ground_station_launch/config/" + config2_name
     global_frame = LaunchConfiguration('global_frame', default='vicon/world')
 
     # Rviz node
-    rviz = Node(
+    rviz0 = Node(
         package='rviz2',
         executable='rviz2',
-        arguments=['-d', config_path,       # set the config
+        arguments=['-d', config0_path,       # set the config
+                   '-f', global_frame],     # overwrite the global frame
+        output='screen')
+    
+    rviz1 = Node(
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', config1_path,       # set the config
+                   '-f', global_frame],     # overwrite the global frame
+        output='screen')
+    
+    rviz2 = Node(
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', config2_path,       # set the config
                    '-f', global_frame],     # overwrite the global frame
         output='screen')
 
@@ -76,17 +91,22 @@ def generate_launch_description():
                 ]
             )
 
+    # esdf splitter
+    esdf_splitter = Node(
+            package="esdf_splitter",
+            executable="esdf_splitter"
+            )
+
 
     # decompros viz node
-    decomp_ros_viz = Node(
-           namespace="camera",
-           package="decomp_ros",
-           executable="vizPoly_node"
-           )
     decomp_ros_nvblox_viz = Node(
            namespace="nvblox_node",
            package="decomp_ros",
-           executable="vizPoly_node"
+           executable="vizPoly_node",
+           parameters = [
+               {"color_a": 0.4},
+               {"line_w": 1.0}
+               ]
            )
 
     # decomp_ros_viz = Node(
@@ -96,13 +116,15 @@ def generate_launch_description():
     #         )
 
     return LaunchDescription([
-        rviz,
+        rviz0,
+        # rviz1,
+        rviz2,
         # vicon,
         # vicon_px4_bridge_node,
         # vicon_world_NED,
-        decomp_ros_viz,
         decomp_ros_nvblox_viz,
         lab_poly,
+        esdf_splitter,
         # video_viewer,
         ])
 

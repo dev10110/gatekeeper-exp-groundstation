@@ -27,17 +27,30 @@ def generate_launch_description():
             executable='video_viewer_node',
             parameters=[
                 {"image_topic": "/camera/color/image_raw"},
-                {"image_transport": "compressed"},
+                {"image_transport": "raw"},
                 {"rotate": "rotate_180"},
                 {"qos": "SENSOR_DATA"}
                 ],
             output='screen',
         )
+    
+    # depth_node = Node(
+    #         package='video_view',
+    #         executable='video_viewer_node',
+    #         parameters=[
+    #             {"image_topic": "/camera/depth/image_rect_raw"},
+    #             {"image_transport": "raw"},
+    #             {"rotate": "rotate_180"},
+    #             {"qos": "SENSOR_DATA"}
+    #             ],
+    #         output='screen',
+    #     )
 
 
 
     return LaunchDescription([
-        video_node
+        video_node, 
+        # depth_node
         ])
 
 
